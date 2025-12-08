@@ -1,0 +1,3 @@
+# CSE489 LAB MIDTERM EXAM
+
+Project Setup
