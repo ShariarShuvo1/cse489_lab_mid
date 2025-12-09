@@ -9,20 +9,20 @@ Future<BitmapDescriptor> createCustomMarker() async {
   final canvas = Canvas(recorder);
   const size = 80.0;
 
-  final yellowPaint = Paint()
-    ..color = AppTheme.yellowForeground
+  final orangePaint = Paint()
+    ..color = const Color(0xFFD97706)
     ..style = PaintingStyle.fill
     ..isAntiAlias = true;
 
-  final blackPaint = Paint()
+  final darkPaint = Paint()
     ..color = AppTheme.darkBackground
     ..style = PaintingStyle.fill
     ..isAntiAlias = true;
 
-  final blackStrokePaint = Paint()
+  final darkStrokePaint = Paint()
     ..color = AppTheme.darkBackground
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 2.0
+    ..strokeWidth = 2.5
     ..isAntiAlias = true;
 
   const pinHeadRadius = 14.0;
@@ -31,10 +31,10 @@ Future<BitmapDescriptor> createCustomMarker() async {
   canvas.drawCircle(
     const Offset(size / 2, pinHeadY),
     pinHeadRadius,
-    yellowPaint,
+    orangePaint,
   );
 
-  canvas.drawCircle(const Offset(size / 2, pinHeadY), 8.0, blackPaint);
+  canvas.drawCircle(const Offset(size / 2, pinHeadY), 8.0, darkPaint);
 
   final needlePath = Path();
   needlePath.moveTo(size / 2 - 6, pinHeadY + pinHeadRadius - 2);
@@ -42,15 +42,15 @@ Future<BitmapDescriptor> createCustomMarker() async {
   needlePath.lineTo(size / 2, 55);
   needlePath.close();
 
-  canvas.drawPath(needlePath, yellowPaint);
+  canvas.drawPath(needlePath, orangePaint);
 
   canvas.drawCircle(
     const Offset(size / 2, pinHeadY),
     pinHeadRadius,
-    blackStrokePaint,
+    darkStrokePaint,
   );
 
-  canvas.drawPath(needlePath, blackStrokePaint);
+  canvas.drawPath(needlePath, darkStrokePaint);
 
   final image = await recorder.endRecording().toImage(
     size.toInt(),
