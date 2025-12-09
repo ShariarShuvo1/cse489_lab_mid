@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/landmark.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../components/themed_snack.dart';
 import '../components/error_dialog.dart';
 import '../components/coordinate_preview_map.dart';
 import '../utils/marker_builder.dart';
@@ -134,7 +135,10 @@ class _NewEntryPageState extends State<NewEntryPage> {
     final lon = double.tryParse(lonController.text.trim());
 
     if (title.isEmpty || lat == null || lon == null) {
-      _showSnack('Please fill all fields with valid values');
+      _showSnack(
+        'Please fill all fields with valid values',
+        type: SnackType.warning,
+      );
       return;
     }
 
@@ -181,6 +185,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
         widget.isEditing
             ? 'Landmark updated successfully'
             : 'Landmark added successfully',
+        type: SnackType.success,
       );
 
       if (Navigator.canPop(context)) {
@@ -213,25 +218,8 @@ class _NewEntryPageState extends State<NewEntryPage> {
     _prefillLocation();
   }
 
-  void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.info_outline, color: AppTheme.yellowForeground),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: AppTheme.cardBackground,
-        margin: const EdgeInsets.all(12),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: AppTheme.yellowForeground, width: 1.5),
-        ),
-      ),
-    );
+  void _showSnack(String message, {SnackType type = SnackType.info}) {
+    showThemedSnack(context, message, type: type);
   }
 
   void _showError(String message) {

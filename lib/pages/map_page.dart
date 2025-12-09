@@ -9,6 +9,7 @@ import '../utils/marker_builder.dart';
 import '../components/landmark_bottom_sheet.dart';
 import '../components/error_dialog.dart';
 import 'new_entry_page.dart';
+import '../components/themed_snack.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -125,30 +126,7 @@ class MapPageState extends State<MapPage> {
     } catch (e) {
       setState(() => isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  color: AppTheme.yellowForeground,
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Text('Error: $e')),
-              ],
-            ),
-            backgroundColor: AppTheme.cardBackground,
-            margin: const EdgeInsets.all(12),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(
-                color: AppTheme.yellowForeground,
-                width: 1.5,
-              ),
-            ),
-          ),
-        );
+        showThemedSnack(context, 'Error: $e', type: SnackType.error);
       }
     }
   }
@@ -193,23 +171,11 @@ class MapPageState extends State<MapPage> {
       await ApiService.deleteLandmark(id);
       await reloadLandmarks();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(
-                  Icons.check_circle_outline,
-                  color: AppTheme.yellowForeground,
-                ),
-                SizedBox(width: 12),
-                Expanded(child: Text('Landmark deleted successfully')),
-              ],
-            ),
-            backgroundColor: AppTheme.cardBackground,
-            margin: EdgeInsets.all(12),
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 2),
-          ),
+        showThemedSnack(
+          context,
+          'Landmark deleted successfully',
+          type: SnackType.success,
+          duration: const Duration(seconds: 2),
         );
       }
     } catch (e) {

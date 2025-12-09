@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/landmark.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../components/themed_snack.dart';
 import 'new_entry_page.dart';
 
 class RecordsPage extends StatefulWidget {
@@ -49,7 +50,7 @@ class _RecordsPageState extends State<RecordsPage> {
     } catch (e) {
       if (mounted) {
         setState(() => isLoading = false);
-        _showSnack('Failed to load records: $e');
+        _showSnack('Failed to load records: $e', type: SnackType.error);
       }
     }
   }
@@ -76,25 +77,8 @@ class _RecordsPageState extends State<RecordsPage> {
     });
   }
 
-  void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.info_outline, color: AppTheme.yellowForeground),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: AppTheme.cardBackground,
-        margin: const EdgeInsets.all(12),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: AppTheme.yellowForeground, width: 1.5),
-        ),
-      ),
-    );
+  void _showSnack(String message, {SnackType type = SnackType.info}) {
+    showThemedSnack(context, message, type: type);
   }
 
   Future<void> _delete(int id) async {
@@ -102,11 +86,11 @@ class _RecordsPageState extends State<RecordsPage> {
       await ApiService.deleteLandmark(id);
       await _loadLandmarks();
       if (mounted) {
-        _showSnack('Deleted successfully');
+        _showSnack('Deleted successfully', type: SnackType.success);
       }
     } catch (e) {
       if (mounted) {
-        _showSnack('Delete failed: $e');
+        _showSnack('Delete failed: $e', type: SnackType.error);
       }
     }
   }
