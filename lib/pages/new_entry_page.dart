@@ -1,21 +1,404 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
+import '../models/landmark.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import '../components/error_dialog.dart';
 
-class NewEntryPage extends StatelessWidget {
-  const NewEntryPage({super.key});
+class NewEntryPage extends StatefulWidget {
+  final Landmark? existing;
+  final Future<void> Function()? onSaved;
+
+  const NewEntryPage({super.key, this.existing, this.onSaved});
+
+  bool get isEditing => existing != null;
+
+  @override
+  State<NewEntryPage> createState() => _NewEntryPageState();
+}
+
+class _NewEntryPageState extends State<NewEntryPage> {
+  final titleController = TextEditingController();
+  final latController = TextEditingController();
+  final lonController = TextEditingController();
+  File? imageFile;
+  bool locating = false;
+  bool submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isEditing) {
+      final landmark = widget.existing!;
+      titleController.text = landmark.title;
+      latController.text = landmark.lat.toString();
+      lonController.text = landmark.lon.toString();
+    } else {
+      _prefillLocation();
+    }
+  }
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    latController.dispose();
+    lonController.dispose();
+    super.dispose();
+  }
+
+  // Tool help form AI to implement location detection and prefill
+  Future<void> _prefillLocation() async {
+    setState(() => locating = true);
+    try {
+      final hasPermission = await _ensureLocationPermission();
+      if (!hasPermission) {
+        _showError('Location permission denied');
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition();
+      latController.text = position.latitude.toStringAsFixed(6);
+      lonController.text = position.longitude.toStringAsFixed(6);
+    } catch (e) {
+      _showError('Unable to detect location: $e');
+    } finally {
+      if (mounted) {
+        setState(() => locating = false);
+      }
+    }
+  }
+
+  Future<bool> _ensureLocationPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return false;
+    }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    return permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse;
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      setState(() => imageFile = File(picked.path));
+    }
+  }
+
+  Future<void> _submit() async {
+    final title = titleController.text.trim();
+    final lat = double.tryParse(latController.text.trim());
+    final lon = double.tryParse(lonController.text.trim());
+
+    if (title.isEmpty || lat == null || lon == null) {
+      _showSnack('Please fill all fields with valid values');
+      return;
+    }
+
+    setState(() => submitting = true);
+    try {
+      if (widget.isEditing) {
+        await ApiService.updateLandmark(
+          id: widget.existing!.id,
+          title: title,
+          lat: lat,
+          lon: lon,
+        );
+      } else {
+        await ApiService.createLandmark(
+          title: title,
+          lat: lat,
+          lon: lon,
+          imageFile: imageFile,
+        );
+      }
+
+      if (widget.onSaved != null) {
+        await widget.onSaved!();
+      }
+
+      if (!mounted) return;
+
+      _showSnack(
+        widget.isEditing
+            ? 'Landmark updated successfully'
+            : 'Landmark added successfully',
+      );
+
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context, true);
+      } else if (!widget.isEditing) {
+        _resetForm();
+      }
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => ErrorDialog(
+            message: e.toString(),
+            onConfirm: () => Navigator.pop(context),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => submitting = false);
+      }
+    }
+  }
+
+  void _resetForm() {
+    titleController.clear();
+    latController.clear();
+    lonController.clear();
+    setState(() => imageFile = null);
+    _prefillLocation();
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.info_outline, color: AppTheme.yellowForeground),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: AppTheme.cardBackground,
+        margin: const EdgeInsets.all(12),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: AppTheme.yellowForeground, width: 1.5),
+        ),
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (context) => ErrorDialog(
+        message: message,
+        onConfirm: () => Navigator.pop(context),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.isEditing;
+    final headerText = isEditing
+        ? 'Editing existing landmark'
+        : 'Add a new landmark';
     return Scaffold(
       appBar: AppBar(
-        title: const Text('New Entry'),
+        title: Text(isEditing ? 'Edit Landmark' : 'New Entry'),
         titleTextStyle: const TextStyle(
           color: AppTheme.yellowForeground,
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
       ),
-      body: const Center(child: Text('New entry')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              headerText,
+              style: const TextStyle(
+                color: AppTheme.yellowForeground,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildTextField(
+              controller: titleController,
+              label: 'Title',
+              icon: Icons.title,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    controller: latController,
+                    label: 'Latitude',
+                    icon: Icons.my_location,
+                    keyboardType: TextInputType.numberWithOptions(
+                      signed: true,
+                      decimal: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildTextField(
+                    controller: lonController,
+                    label: 'Longitude',
+                    icon: Icons.explore,
+                    keyboardType: TextInputType.numberWithOptions(
+                      signed: true,
+                      decimal: true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (isEditing) _buildLockedImageSection() else _buildImagePicker(),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: submitting ? null : _submit,
+                icon: submitting
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.darkBackground,
+                        ),
+                      )
+                    : Icon(isEditing ? Icons.save : Icons.add_location_alt),
+                label: Text(isEditing ? 'Update Landmark' : 'Create Landmark'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.yellowForeground,
+                  foregroundColor: AppTheme.darkBackground,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.cardBackground,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.yellowForeground, width: 1),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        style: const TextStyle(color: AppTheme.textPrimary),
+        decoration: InputDecoration(
+          icon: Icon(icon, color: AppTheme.yellowForeground),
+          labelText: label,
+          labelStyle: const TextStyle(color: AppTheme.textSecondary),
+          border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImagePicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Photo (optional)',
+          style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: _pickImage,
+          child: Container(
+            width: double.infinity,
+            height: 200,
+            decoration: BoxDecoration(
+              color: AppTheme.cardBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.yellowForeground, width: 1.5),
+            ),
+            child: imageFile == null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(
+                        Icons.add_a_photo,
+                        color: AppTheme.textSecondary,
+                        size: 32,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Tap to select an image',
+                        style: TextStyle(color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.file(imageFile!, fit: BoxFit.cover),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLockedImageSection() {
+    final imageUrl = widget.existing?.image;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          height: 200,
+          decoration: BoxDecoration(
+            color: AppTheme.cardBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.yellowForeground, width: 1.5),
+          ),
+          child: imageUrl != null && imageUrl.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    'https://labs.anontech.info/cse489/t3/$imageUrl',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Icon(
+                          Icons.image_not_supported,
+                          color: AppTheme.textSecondary,
+                          size: 48,
+                        ),
+                      );
+                    },
+                  ),
+                )
+              : const Center(
+                  child: Icon(
+                    Icons.image,
+                    color: AppTheme.textSecondary,
+                    size: 48,
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }

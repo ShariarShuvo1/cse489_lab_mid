@@ -30,17 +30,23 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  final GlobalKey<MapPageState> _mapKey = GlobalKey<MapPageState>();
+  late final List<Widget> _pages;
 
-  final List<Widget> _pages = [
-    const MapPage(),
-    const RecordsPage(),
-    const NewEntryPage(),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      MapPage(key: _mapKey),
+      const RecordsPage(),
+      NewEntryPage(onSaved: _handleSaved),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_selectedIndex],
+      body: IndexedStack(index: _selectedIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
@@ -59,5 +65,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _handleSaved() async {
+    await _mapKey.currentState?.reloadLandmarks();
+    if (mounted) {
+      setState(() => _selectedIndex = 0);
+    }
   }
 }
