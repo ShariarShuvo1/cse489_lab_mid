@@ -18,7 +18,8 @@ class MapPage extends StatefulWidget {
 }
 
 class MapPageState extends State<MapPage> {
-  late GoogleMapController mapController;
+  GoogleMapController? _mapController;
+  final Completer<GoogleMapController> _controllerCompleter = Completer();
   Set<Marker> markers = {};
   List<Landmark> landmarks = [];
   bool isLoading = true;
@@ -225,10 +226,22 @@ class MapPageState extends State<MapPage> {
   }
 
   void _onMapCreated(GoogleMapController controller) {
-    mapController = controller;
-    mapController.moveCamera(
+    _mapController = controller;
+    if (!_controllerCompleter.isCompleted) {
+      _controllerCompleter.complete(controller);
+    }
+    controller.moveCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(target: bangladeshCenter, zoom: 7),
+      ),
+    );
+  }
+
+  Future<void> focusOn(Landmark landmark) async {
+    final controller = _mapController ?? await _controllerCompleter.future;
+    await controller.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: LatLng(landmark.lat, landmark.lon), zoom: 14),
       ),
     );
   }
@@ -278,11 +291,15 @@ class MapPageState extends State<MapPage> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            NewEntryPage(existing: landmark, onSaved: reloadLandmarks),
+        builder: (_) => NewEntryPage(
+          existing: landmark,
+          onSaved: (lm) async {
+            await reloadLandmarks();
+          },
+        ),
       ),
     );
-    if (result == true) {
+    if (result is Landmark) {
       await reloadLandmarks();
     }
   }
@@ -323,7 +340,7 @@ class MapPageState extends State<MapPage> {
 
   @override
   void dispose() {
-    mapController.dispose();
+    _mapController?.dispose();
     positionSub?.cancel();
     super.dispose();
   }

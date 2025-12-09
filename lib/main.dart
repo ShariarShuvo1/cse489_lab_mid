@@ -3,6 +3,7 @@ import 'pages/map_page.dart';
 import 'pages/records_page.dart';
 import 'pages/new_entry_page.dart';
 import 'theme/app_theme.dart';
+import 'models/landmark.dart';
 
 void main() {
   runApp(const MainApp());
@@ -38,7 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _pages = [
       MapPage(key: _mapKey),
-      const RecordsPage(),
+      RecordsPage(onFocus: _focusOnLandmark),
       NewEntryPage(onSaved: _handleSaved),
     ];
   }
@@ -110,10 +111,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _handleSaved() async {
+  Future<void> _handleSaved(Landmark landmark) async {
     await _mapKey.currentState?.reloadLandmarks();
     if (mounted) {
       setState(() => _selectedIndex = 0);
     }
+    await Future.delayed(const Duration(milliseconds: 50));
+    await _mapKey.currentState?.focusOn(landmark);
+  }
+
+  Future<void> _focusOnLandmark(Landmark landmark) async {
+    if (mounted) {
+      setState(() => _selectedIndex = 0);
+    }
+    await Future.delayed(const Duration(milliseconds: 50));
+    await _mapKey.currentState?.focusOn(landmark);
   }
 }
