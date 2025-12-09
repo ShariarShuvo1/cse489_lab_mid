@@ -8,11 +8,10 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// Load .env file
-val envFile = rootProject.file(".env")
+val localPropertiesFile = rootProject.file("local.properties")
 val properties = Properties()
-if (envFile.exists()) {
-    properties.load(FileInputStream(envFile))
+if (localPropertiesFile.exists()) {
+    properties.load(FileInputStream(localPropertiesFile))
 }
 
 android {
@@ -43,7 +42,7 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         
-        // Add Google Maps API key from .env file
+        // Add Google Maps API key from local.properties
         val apiKey = properties.getProperty("GOOGLE_MAPS_API_KEY", "")
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$apiKey\"")
         resValue("string", "google_maps_api_key", apiKey)
