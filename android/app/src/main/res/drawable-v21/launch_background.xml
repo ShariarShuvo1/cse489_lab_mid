@@ -3,10 +3,10 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="?android:colorBackground" />
 
-    <!-- Show the app logo at the center during launch (Android only). Use the existing drawable/logo.png -->
+    <!-- Show the app launcher icon at the center during launch (Android only). Use mipmap/ic_launcher -->
     <item>
         <bitmap
             android:gravity="center"
-            android:src="@drawable/logo" />
+            android:src="@mipmap/ic_launcher" />
     </item>
 </layer-list>

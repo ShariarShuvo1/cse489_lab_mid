@@ -14,6 +14,14 @@ if (localPropertiesFile.exists()) {
     properties.load(FileInputStream(localPropertiesFile))
 }
 
+val keyPropertiesFile = rootProject.file("key.properties")
+val keyProperties = Properties()
+var hasKeyProperties = false
+if (keyPropertiesFile.exists()) {
+    keyProperties.load(FileInputStream(keyPropertiesFile))
+    hasKeyProperties = true
+}
+
 android {
     namespace = "com.example.cse489_lab_mid"
     compileSdk = flutter.compileSdkVersion
@@ -42,17 +50,29 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         
-        // Add Google Maps API key from local.properties
         val apiKey = properties.getProperty("GOOGLE_MAPS_API_KEY", "")
         buildConfigField("String", "GOOGLE_MAPS_API_KEY", "\"$apiKey\"")
         resValue("string", "google_maps_api_key", apiKey)
     }
 
+    if (hasKeyProperties) {
+        signingConfigs {
+            create("release") {
+                storeFile = rootProject.file(keyProperties.getProperty("storeFile"))
+                storePassword = keyProperties.getProperty("storePassword")
+                keyAlias = keyProperties.getProperty("keyAlias")
+                keyPassword = keyProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            if (hasKeyProperties) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 }
