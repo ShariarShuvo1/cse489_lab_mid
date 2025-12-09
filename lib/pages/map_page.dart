@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'dart:ui' show Offset;
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/landmark.dart';
 import '../services/api_service.dart';
@@ -6,21 +9,24 @@ import '../theme/app_theme.dart';
 import '../utils/marker_builder.dart';
 import '../components/landmark_bottom_sheet.dart';
 import '../components/error_dialog.dart';
+import 'new_entry_page.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
 
   @override
-  State<MapPage> createState() => _MapPageState();
+  MapPageState createState() => MapPageState();
 }
 
-class _MapPageState extends State<MapPage> {
+class MapPageState extends State<MapPage> {
   late GoogleMapController mapController;
   Set<Marker> markers = {};
   List<Landmark> landmarks = [];
   bool isLoading = true;
-  Landmark? selectedLandmark;
   BitmapDescriptor? customMarkerIcon;
+  BitmapDescriptor? userMarkerIcon;
+  Position? userPosition;
+  StreamSubscription<Position>? positionSub;
 
   final LatLng bangladeshCenter = const LatLng(23.6850, 90.3563);
 
@@ -103,10 +109,12 @@ class _MapPageState extends State<MapPage> {
 
   Future<void> _initializeMarkerIcon() async {
     customMarkerIcon = await createCustomMarker();
-    await _loadLandmarks();
+    userMarkerIcon = await createUserLocationMarker();
+    await reloadLandmarks();
+    await _startLocationUpdates();
   }
 
-  Future<void> _loadLandmarks() async {
+  Future<void> reloadLandmarks() async {
     try {
       final loadedLandmarks = await ApiService.fetchLandmarks();
       setState(() {
@@ -146,9 +154,9 @@ class _MapPageState extends State<MapPage> {
   }
 
   void _createMarkers() {
-    markers.clear();
+    final newMarkers = <Marker>{};
     for (final landmark in landmarks) {
-      markers.add(
+      newMarkers.add(
         Marker(
           markerId: MarkerId(landmark.id.toString()),
           position: LatLng(landmark.lat, landmark.lon),
@@ -157,6 +165,10 @@ class _MapPageState extends State<MapPage> {
         ),
       );
     }
+    if (userPosition != null) {
+      newMarkers.add(_buildUserMarker(userPosition!));
+    }
+    markers = newMarkers;
   }
 
   void _showLandmarkSheet(Landmark landmark) {
@@ -166,6 +178,7 @@ class _MapPageState extends State<MapPage> {
         landmark: landmark,
         onEdit: () {
           Navigator.pop(context);
+          _openEdit(landmark);
         },
         onDelete: () {
           Navigator.pop(context);
@@ -178,7 +191,7 @@ class _MapPageState extends State<MapPage> {
   Future<void> _deleteLandmark(int id) async {
     try {
       await ApiService.deleteLandmark(id);
-      await _loadLandmarks();
+      await reloadLandmarks();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -216,6 +229,60 @@ class _MapPageState extends State<MapPage> {
     mapController = controller;
   }
 
+  Future<void> _startLocationUpdates() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return;
+    }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission != LocationPermission.always &&
+        permission != LocationPermission.whileInUse) {
+      return;
+    }
+
+    positionSub?.cancel();
+    positionSub =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
+          ),
+        ).listen((pos) {
+          setState(() {
+            userPosition = pos;
+            _createMarkers();
+          });
+        });
+  }
+
+  Marker _buildUserMarker(Position pos) {
+    return Marker(
+      markerId: const MarkerId('user_location'),
+      position: LatLng(pos.latitude, pos.longitude),
+      icon:
+          userMarkerIcon ??
+          BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+      zIndex: 9999,
+      anchor: const Offset(0.5, 0.9),
+    );
+  }
+
+  Future<void> _openEdit(Landmark landmark) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            NewEntryPage(existing: landmark, onSaved: reloadLandmarks),
+      ),
+    );
+    if (result == true) {
+      await reloadLandmarks();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -240,7 +307,7 @@ class _MapPageState extends State<MapPage> {
                 zoom: 7,
               ),
               markers: markers,
-              myLocationEnabled: true,
+              myLocationEnabled: false,
               myLocationButtonEnabled: true,
               compassEnabled: true,
               zoomControlsEnabled: false,
@@ -253,6 +320,7 @@ class _MapPageState extends State<MapPage> {
   @override
   void dispose() {
     mapController.dispose();
+    positionSub?.cancel();
     super.dispose();
   }
 }
