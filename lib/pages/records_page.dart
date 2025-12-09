@@ -16,13 +16,23 @@ class RecordsPage extends StatefulWidget {
 
 class _RecordsPageState extends State<RecordsPage> {
   List<Landmark> landmarks = [];
+  List<Landmark> filteredLandmarks = [];
   bool isLoading = true;
   bool isRefreshing = false;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadLandmarks();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadLandmarks() async {
@@ -32,6 +42,7 @@ class _RecordsPageState extends State<RecordsPage> {
       if (mounted) {
         setState(() {
           landmarks = data;
+          filteredLandmarks = List.of(landmarks);
           isLoading = false;
         });
       }
@@ -47,6 +58,22 @@ class _RecordsPageState extends State<RecordsPage> {
     setState(() => isRefreshing = true);
     await _loadLandmarks();
     if (mounted) setState(() => isRefreshing = false);
+  }
+
+  void _onSearchChanged() {
+    final q = _searchController.text.trim().toLowerCase();
+    if (q.isEmpty) {
+      setState(() => filteredLandmarks = List.of(landmarks));
+      return;
+    }
+
+    setState(() {
+      filteredLandmarks = landmarks.where((lm) {
+        final title = lm.title.toLowerCase();
+        final coords = '${lm.lat}, ${lm.lon}';
+        return title.contains(q) || coords.contains(q);
+      }).toList();
+    });
   }
 
   void _showSnack(String message) {
@@ -159,11 +186,14 @@ class _RecordsPageState extends State<RecordsPage> {
   }
 
   Widget _buildList() {
-    if (landmarks.isEmpty) {
-      return const Center(
+    if (filteredLandmarks.isEmpty) {
+      final emptyText = _searchController.text.trim().isEmpty
+          ? 'No records yet'
+          : 'No records match your search';
+      return Center(
         child: Text(
-          'No records yet',
-          style: TextStyle(color: AppTheme.textSecondary),
+          emptyText,
+          style: const TextStyle(color: AppTheme.textSecondary),
         ),
       );
     }
@@ -174,9 +204,9 @@ class _RecordsPageState extends State<RecordsPage> {
       onRefresh: _refresh,
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: landmarks.length,
+        itemCount: filteredLandmarks.length,
         itemBuilder: (context, index) {
-          final item = landmarks[index];
+          final item = filteredLandmarks[index];
           return Dismissible(
             key: ValueKey(item.id),
             background: _buildSwipeBackground(
@@ -252,7 +282,59 @@ class _RecordsPageState extends State<RecordsPage> {
                 color: AppTheme.yellowForeground,
               ),
             )
-          : _buildList(),
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardBackground,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppTheme.yellowForeground,
+                        width: 1,
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      style: const TextStyle(color: AppTheme.textPrimary),
+                      cursorColor: AppTheme.yellowForeground,
+                      decoration: InputDecoration(
+                        hintText: 'Search records',
+                        hintStyle: const TextStyle(
+                          color: AppTheme.textSecondary,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: AppTheme.textSecondary,
+                        ),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(
+                                  Icons.clear,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _onSearchChanged();
+                                },
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 14,
+                          horizontal: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(child: _buildList()),
+              ],
+            ),
     );
   }
 }

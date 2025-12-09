@@ -69,7 +69,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
     }
   }
 
-  // Tool help form AI to implement location detection and prefill
+  // Took help form AI to implement location detection and prefill
   Future<void> _prefillLocation() async {
     setState(() => locating = true);
     try {
