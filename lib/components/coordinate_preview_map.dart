@@ -7,12 +7,16 @@ class CoordinatePreviewMap extends StatefulWidget {
   final LatLng defaultCenter;
   final LatLng? coordinate;
   final BitmapDescriptor? markerIcon;
+  final VoidCallback? onLocatePressed;
+  final bool isLocating;
 
   const CoordinatePreviewMap({
     super.key,
     required this.defaultCenter,
     required this.coordinate,
     required this.markerIcon,
+    this.onLocatePressed,
+    this.isLocating = false,
   });
 
   @override
@@ -135,24 +139,67 @@ class _CoordinatePreviewMapState extends State<CoordinatePreviewMap> {
         borderRadius: BorderRadius.circular(10),
         child: SizedBox(
           height: 180,
-          child: GoogleMap(
-            initialCameraPosition: CameraPosition(target: initial, zoom: 11),
-            style: _darkMapStyle,
-            onMapCreated: (ctrl) async {
-              controller = ctrl;
-              _controllerCompleter.complete(ctrl);
-            },
-            zoomControlsEnabled: false,
-            mapToolbarEnabled: false,
-            myLocationEnabled: false,
-            myLocationButtonEnabled: false,
-            compassEnabled: false,
-            buildingsEnabled: false,
-            trafficEnabled: false,
-            indoorViewEnabled: false,
-            tiltGesturesEnabled: false,
-            rotateGesturesEnabled: false,
-            markers: markers,
+          child: Stack(
+            children: [
+              GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: initial,
+                  zoom: 11,
+                ),
+                style: _darkMapStyle,
+                onMapCreated: (ctrl) async {
+                  controller = ctrl;
+                  _controllerCompleter.complete(ctrl);
+                },
+                zoomControlsEnabled: false,
+                mapToolbarEnabled: false,
+                myLocationEnabled: false,
+                myLocationButtonEnabled: false,
+                compassEnabled: false,
+                buildingsEnabled: false,
+                trafficEnabled: false,
+                indoorViewEnabled: false,
+                tiltGesturesEnabled: false,
+                rotateGesturesEnabled: false,
+                markers: markers,
+              ),
+              if (widget.onLocatePressed != null)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: widget.isLocating ? null : widget.onLocatePressed,
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardBackground,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppTheme.yellowForeground,
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: widget.isLocating
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.yellowForeground,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.my_location,
+                                color: AppTheme.yellowForeground,
+                                size: 20,
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

@@ -266,6 +266,8 @@ class _NewEntryPageState extends State<NewEntryPage> {
               defaultCenter: _defaultCenter,
               coordinate: previewLatLng,
               markerIcon: previewMarkerIcon,
+              onLocatePressed: _prefillLocation,
+              isLocating: locating,
             ),
             const SizedBox(height: 10),
             _buildTextField(
