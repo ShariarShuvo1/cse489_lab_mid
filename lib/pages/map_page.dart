@@ -152,7 +152,6 @@ class _MapPageState extends State<MapPage> {
         Marker(
           markerId: MarkerId(landmark.id.toString()),
           position: LatLng(landmark.lat, landmark.lon),
-          infoWindow: InfoWindow(title: landmark.title),
           icon: customMarkerIcon ?? BitmapDescriptor.defaultMarker,
           onTap: () => _showLandmarkSheet(landmark),
         ),
