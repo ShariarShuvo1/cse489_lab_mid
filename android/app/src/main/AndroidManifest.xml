@@ -10,7 +10,7 @@
     <application
         android:label="cse489_lab_mid"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@drawable/logo">
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
