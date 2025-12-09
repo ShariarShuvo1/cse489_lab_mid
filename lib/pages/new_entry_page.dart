@@ -2,10 +2,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/landmark.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import '../components/error_dialog.dart';
+import '../components/coordinate_preview_map.dart';
+import '../utils/marker_builder.dart';
 
 class NewEntryPage extends StatefulWidget {
   final Landmark? existing;
@@ -26,15 +29,22 @@ class _NewEntryPageState extends State<NewEntryPage> {
   File? imageFile;
   bool locating = false;
   bool submitting = false;
+  LatLng? previewLatLng;
+  BitmapDescriptor? previewMarkerIcon;
+  final LatLng _defaultCenter = const LatLng(23.6850, 90.3563);
 
   @override
   void initState() {
     super.initState();
+    latController.addListener(_onLatLonChanged);
+    lonController.addListener(_onLatLonChanged);
+    _loadPreviewMarker();
     if (widget.isEditing) {
       final landmark = widget.existing!;
       titleController.text = landmark.title;
       latController.text = landmark.lat.toString();
       lonController.text = landmark.lon.toString();
+      _onLatLonChanged();
     } else {
       _prefillLocation();
     }
@@ -42,10 +52,21 @@ class _NewEntryPageState extends State<NewEntryPage> {
 
   @override
   void dispose() {
+    latController.removeListener(_onLatLonChanged);
+    lonController.removeListener(_onLatLonChanged);
     titleController.dispose();
     latController.dispose();
     lonController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadPreviewMarker() async {
+    final icon = await createPreviewMarker();
+    if (mounted) {
+      setState(() {
+        previewMarkerIcon = icon;
+      });
+    }
   }
 
   // Tool help form AI to implement location detection and prefill
@@ -60,6 +81,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
       final position = await Geolocator.getCurrentPosition();
       latController.text = position.latitude.toStringAsFixed(6);
       lonController.text = position.longitude.toStringAsFixed(6);
+      _onLatLonChanged();
     } catch (e) {
       _showError('Unable to detect location: $e');
     } finally {
@@ -87,6 +109,22 @@ class _NewEntryPageState extends State<NewEntryPage> {
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
       setState(() => imageFile = File(picked.path));
+    }
+  }
+
+  void _onLatLonChanged() {
+    final lat = double.tryParse(latController.text.trim());
+    final lon = double.tryParse(lonController.text.trim());
+    if (lat != null && lon != null) {
+      setState(() {
+        previewLatLng = LatLng(lat, lon);
+      });
+    } else {
+      if (previewLatLng != null) {
+        setState(() {
+          previewLatLng = null;
+        });
+      }
     }
   }
 
@@ -208,7 +246,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -216,24 +254,30 @@ class _NewEntryPageState extends State<NewEntryPage> {
               headerText,
               style: const TextStyle(
                 color: AppTheme.yellowForeground,
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            CoordinatePreviewMap(
+              defaultCenter: _defaultCenter,
+              coordinate: previewLatLng,
+              markerIcon: previewMarkerIcon,
+            ),
+            const SizedBox(height: 10),
             _buildTextField(
               controller: titleController,
               label: 'Title',
               icon: Icons.title,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: _buildTextField(
                     controller: latController,
                     label: 'Latitude',
-                    icon: Icons.my_location,
+                    icon: Icons.north,
                     keyboardType: TextInputType.numberWithOptions(
                       signed: true,
                       decimal: true,
@@ -245,7 +289,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
                   child: _buildTextField(
                     controller: lonController,
                     label: 'Longitude',
-                    icon: Icons.explore,
+                    icon: Icons.east,
                     keyboardType: TextInputType.numberWithOptions(
                       signed: true,
                       decimal: true,
@@ -254,9 +298,9 @@ class _NewEntryPageState extends State<NewEntryPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             if (isEditing) _buildLockedImageSection() else _buildImagePicker(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -275,7 +319,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.yellowForeground,
                   foregroundColor: AppTheme.darkBackground,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -300,7 +344,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppTheme.yellowForeground, width: 1),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: TextField(
         controller: controller,
         keyboardType: keyboardType,
@@ -328,7 +372,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
           onTap: _pickImage,
           child: Container(
             width: double.infinity,
-            height: 200,
+            height: 160,
             decoration: BoxDecoration(
               color: AppTheme.cardBackground,
               borderRadius: BorderRadius.circular(12),
@@ -367,7 +411,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
       children: [
         Container(
           width: double.infinity,
-          height: 200,
+          height: 160,
           decoration: BoxDecoration(
             color: AppTheme.cardBackground,
             borderRadius: BorderRadius.circular(12),

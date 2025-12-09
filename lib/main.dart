@@ -47,22 +47,65 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: _pages),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
+      bottomNavigationBar: _buildCustomNav(),
+    );
+  }
+
+  Widget _buildCustomNav() {
+    return SafeArea(
+      child: Container(
+        color: AppTheme.cardBackground,
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        child: Row(
+          children: [
+            _navTab(Icons.public, 'Overview', 0),
+            _navTab(Icons.library_books, 'Records', 1),
+            _navTab(Icons.add_location_alt, 'New Entry', 2),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navTab(IconData icon, String label, int index) {
+    final bool selected = _selectedIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
           setState(() => _selectedIndex = index);
         },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.public), label: 'Overview'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.library_books),
-            label: 'Records',
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppTheme.yellowForeground
+                : AppTheme.cardBackground,
+            borderRadius: BorderRadius.circular(12),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.add_location_alt),
-            label: 'New Entry',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: selected
+                    ? AppTheme.darkBackground
+                    : AppTheme.textSecondary,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected
+                      ? AppTheme.darkBackground
+                      : AppTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

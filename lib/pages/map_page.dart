@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show Offset;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -227,6 +226,11 @@ class MapPageState extends State<MapPage> {
 
   void _onMapCreated(GoogleMapController controller) {
     mapController = controller;
+    mapController.moveCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: bangladeshCenter, zoom: 7),
+      ),
+    );
   }
 
   Future<void> _startLocationUpdates() async {
@@ -265,7 +269,7 @@ class MapPageState extends State<MapPage> {
       icon:
           userMarkerIcon ??
           BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-      zIndex: 9999,
+      zIndexInt: 9999,
       anchor: const Offset(0.5, 0.9),
     );
   }
