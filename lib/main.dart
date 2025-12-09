@@ -33,10 +33,12 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final GlobalKey<MapPageState> _mapKey = GlobalKey<MapPageState>();
   late final List<Widget> _pages;
+  late final PageController _pageController;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: _selectedIndex);
     _pages = [
       MapPage(key: _mapKey),
       RecordsPage(onFocus: _focusOnLandmark),
@@ -45,9 +47,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: _pages),
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        onPageChanged: (index) {
+          setState(() => _selectedIndex = index);
+        },
+        children: _pages,
+      ),
       bottomNavigationBar: _buildCustomNav(),
     );
   }
@@ -73,7 +88,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          setState(() => _selectedIndex = index);
+          _pageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
         },
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -114,7 +133,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _handleSaved(Landmark landmark) async {
     await _mapKey.currentState?.reloadLandmarks();
     if (mounted) {
-      setState(() => _selectedIndex = 0);
+      _pageController.animateToPage(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
     }
     await Future.delayed(const Duration(milliseconds: 50));
     await _mapKey.currentState?.focusOn(landmark);
@@ -122,7 +145,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _focusOnLandmark(Landmark landmark) async {
     if (mounted) {
-      setState(() => _selectedIndex = 0);
+      _pageController.animateToPage(
+        0,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
     }
     await Future.delayed(const Duration(milliseconds: 50));
     await _mapKey.currentState?.focusOn(landmark);
