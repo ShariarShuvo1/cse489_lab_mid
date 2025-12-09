@@ -128,7 +128,7 @@ class _CoordinatePreviewMapState extends State<CoordinatePreviewMap> {
         ),
       );
     }
-
+    // Taken help from AI to design the map preview container
     return Container(
       decoration: BoxDecoration(
         color: Colors.transparent,

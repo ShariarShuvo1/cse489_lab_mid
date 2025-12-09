@@ -1,33 +1,30 @@
-# CSE489 LAB MIDTERM EXAM
+# CSE489 LAB MIDTERM APP
 
-## Build and Run
+App summary
 
-### Prerequisites
+- A compact Flutter application for recording, annotating, and reviewing landmarks on an interactive Google map. Users can capture their current location or pick coordinates on the map, add details for a landmark, and save or browse previously recorded entries — useful as a teaching/demo project for mobile mapping, location permissions, and simple local data storage.
+- First build (v0.1) APK available: [First Build](https://github.com/ShariarShuvo1/cse489_lab_mid/releases/tag/0.1 "First Build")
 
-- Flutter SDK installed
-- Android Studio
+Feature list
 
-### Build
+- Display map and preview coordinates
+- Create new landmark entries with location
+- View saved records
+- Uses device location and Google Maps
 
-```bash
-flutter pub get
-flutter build apk      # For Android
-```
+Setup instructions
 
-### Run
+- Prerequisites: Flutter SDK, Android Studio
+- Add your Google Maps API key to `android/local.properties` as:
 
-```bash
-flutter run
-```
+  GOOGLE_MAPS_API_KEY=YOUR_KEY
+- Install deps and run:
 
-### Run on Specific Device
+  flutter pub get
+  flutter run # or `flutter build apk` to build
 
-```bash
-flutter run -d <device_id>
-```
+Known limitations
 
-To list available devices:
-
-```bash
-flutter devices
-```
+- Requires a valid Google Maps API key in `android/local.properties`
+- Permissions and map features tested primarily on Android
+- Limited error handling and input validation

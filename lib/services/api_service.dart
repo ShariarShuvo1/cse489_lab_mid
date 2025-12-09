@@ -105,6 +105,7 @@ class ApiService {
     }
   }
 
+  // Took help from AI to implement this function
   static Future<List<int>> _resizeImage(File file) async {
     final bytes = await file.readAsBytes();
     final decoded = img.decodeImage(bytes);

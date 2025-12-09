@@ -67,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Used AI to design the structure and modified it to fit the app's theme.
   Widget _buildCustomNav() {
     return SafeArea(
       child: Container(
