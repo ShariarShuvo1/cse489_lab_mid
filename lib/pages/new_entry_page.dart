@@ -12,7 +12,7 @@ import '../utils/marker_builder.dart';
 
 class NewEntryPage extends StatefulWidget {
   final Landmark? existing;
-  final Future<void> Function()? onSaved;
+  final Future<void> Function(Landmark landmark)? onSaved;
 
   const NewEntryPage({super.key, this.existing, this.onSaved});
 
@@ -140,6 +140,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
 
     setState(() => submitting = true);
     try {
+      late final Landmark resultLandmark;
       if (widget.isEditing) {
         await ApiService.updateLandmark(
           id: widget.existing!.id,
@@ -147,17 +148,31 @@ class _NewEntryPageState extends State<NewEntryPage> {
           lat: lat,
           lon: lon,
         );
+        resultLandmark = Landmark(
+          id: widget.existing!.id,
+          title: title,
+          lat: lat,
+          lon: lon,
+          image: widget.existing!.image,
+        );
       } else {
-        await ApiService.createLandmark(
+        final newId = await ApiService.createLandmark(
           title: title,
           lat: lat,
           lon: lon,
           imageFile: imageFile,
         );
+        resultLandmark = Landmark(
+          id: newId,
+          title: title,
+          lat: lat,
+          lon: lon,
+          image: null,
+        );
       }
 
       if (widget.onSaved != null) {
-        await widget.onSaved!();
+        await widget.onSaved!(resultLandmark);
       }
 
       if (!mounted) return;
@@ -169,7 +184,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
       );
 
       if (Navigator.canPop(context)) {
-        Navigator.pop(context, true);
+        Navigator.pop(context, resultLandmark);
       } else if (!widget.isEditing) {
         _resetForm();
       }
