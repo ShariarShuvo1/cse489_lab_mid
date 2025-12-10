@@ -42,30 +42,44 @@ class ApiService {
       final key = Secrets.googleMapsApiKey;
       if (key.isEmpty) return null;
 
-      final nearbyUri = Uri.https(
-        'maps.googleapis.com',
-        '/maps/api/place/nearbysearch/json',
-        {
-          'location': '${lat.toString()},${lon.toString()}',
-          'radius': '1',
-          'key': key,
-        },
-      );
-      final nearbyResp = await http.get(nearbyUri);
-      if (nearbyResp.statusCode != 200) return null;
-      final Map<String, dynamic> nearbyData = jsonDecode(nearbyResp.body);
-      final results = nearbyData['results'] as List<dynamic>?;
-      if (results == null || results.isEmpty) return null;
-
+      final radii = ['50', '200', '500'];
+      List<dynamic>? results;
       Map<String, dynamic>? withPhoto;
-      for (final r in results) {
-        final map = r as Map<String, dynamic>;
-        if (map['photos'] != null) {
-          withPhoto = map;
-          break;
+      Map<String, dynamic>? nearbyData;
+      http.Response? nearbyResp;
+
+      for (final r in radii) {
+        final nearbyUri = Uri.https(
+          'maps.googleapis.com',
+          '/maps/api/place/nearbysearch/json',
+          {
+            'location': '${lat.toString()},${lon.toString()}',
+            'radius': r,
+            'key': key,
+          },
+        );
+        nearbyResp = await http.get(nearbyUri);
+        if (nearbyResp.statusCode != 200) {
+          continue;
+        }
+        nearbyData = jsonDecode(nearbyResp.body) as Map<String, dynamic>?;
+        results = nearbyData?['results'] as List<dynamic>?;
+        if (results != null && results.isNotEmpty) {
+          for (final rmap in results) {
+            final map = rmap as Map<String, dynamic>;
+            if (map['photos'] != null) {
+              withPhoto = map;
+              break;
+            }
+          }
+          if (withPhoto != null) break;
         }
       }
-      if (withPhoto == null) return null;
+
+      if (results == null || results.isEmpty || withPhoto == null) {
+        return null;
+      }
+
       final photos = withPhoto['photos'] as List<dynamic>?;
       if (photos == null || photos.isEmpty) return null;
       final photoRef =
@@ -78,7 +92,9 @@ class ApiService {
         {'maxwidth': '800', 'photoreference': photoRef, 'key': key},
       );
       final photoResp = await http.get(photoUri);
-      if (photoResp.statusCode != 200) return null;
+      if (photoResp.statusCode != 200) {
+        return null;
+      }
       final bytes = photoResp.bodyBytes;
       final decoded = img.decodeImage(bytes);
       if (decoded == null) return null;
