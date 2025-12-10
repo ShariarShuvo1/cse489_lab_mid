@@ -3,7 +3,6 @@
 App summary
 
 - A compact Flutter application for recording, annotating, and reviewing landmarks on an interactive Google map. Users can capture their current location or pick coordinates on the map, add details for a landmark, and save or browse previously recorded entries — useful as a teaching/demo project for mobile mapping, location permissions, and simple local data storage.
-- First build (v0.1) APK available: [First Build](https://github.com/ShariarShuvo1/cse489_lab_mid/releases/tag/0.1 "First Build")
 
 Feature list
 

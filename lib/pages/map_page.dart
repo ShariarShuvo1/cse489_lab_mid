@@ -24,6 +24,7 @@ class MapPageState extends State<MapPage> {
   Set<Marker> markers = {};
   List<Landmark> landmarks = [];
   bool isLoading = true;
+  bool locating = false;
   BitmapDescriptor? customMarkerIcon;
   BitmapDescriptor? userMarkerIcon;
   Position? userPosition;
@@ -241,6 +242,61 @@ class MapPageState extends State<MapPage> {
         });
   }
 
+  Future<void> _goToMyLocation() async {
+    setState(() => locating = true);
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          showThemedSnack(
+            context,
+            'Location service disabled',
+            type: SnackType.warning,
+          );
+        }
+        return;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        if (mounted) {
+          showThemedSnack(
+            context,
+            'Location permission denied',
+            type: SnackType.warning,
+          );
+        }
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      userPosition = pos;
+      _createMarkers();
+      final controller = _mapController ?? await _controllerCompleter.future;
+      await controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(target: LatLng(pos.latitude, pos.longitude), zoom: 14),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        showThemedSnack(
+          context,
+          'Failed to get location: $e',
+          type: SnackType.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => locating = false);
+      }
+    }
+  }
+
   Marker _buildUserMarker(Position pos) {
     return Marker(
       markerId: const MarkerId('user_location'),
@@ -287,19 +343,58 @@ class MapPageState extends State<MapPage> {
                 color: AppTheme.yellowForeground,
               ),
             )
-          : GoogleMap(
-              onMapCreated: _onMapCreated,
-              initialCameraPosition: CameraPosition(
-                target: bangladeshCenter,
-                zoom: 7,
-              ),
-              markers: markers,
-              myLocationEnabled: false,
-              myLocationButtonEnabled: true,
-              compassEnabled: true,
-              zoomControlsEnabled: false,
-              mapToolbarEnabled: false,
-              style: darkMapStyle,
+          : Stack(
+              children: [
+                GoogleMap(
+                  onMapCreated: _onMapCreated,
+                  initialCameraPosition: CameraPosition(
+                    target: bangladeshCenter,
+                    zoom: 7,
+                  ),
+                  markers: markers,
+                  myLocationEnabled: false,
+                  myLocationButtonEnabled: false,
+                  compassEnabled: true,
+                  zoomControlsEnabled: false,
+                  mapToolbarEnabled: false,
+                  style: darkMapStyle,
+                ),
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: GestureDetector(
+                    onTap: locating ? null : _goToMyLocation,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardBackground,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppTheme.yellowForeground,
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: locating
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.yellowForeground,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.my_location,
+                                color: AppTheme.yellowForeground,
+                                size: 20,
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
     );
   }

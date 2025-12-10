@@ -8,6 +8,7 @@ class CoordinatePreviewMap extends StatefulWidget {
   final LatLng? coordinate;
   final BitmapDescriptor? markerIcon;
   final VoidCallback? onLocatePressed;
+  final ValueChanged<LatLng>? onTap;
   final bool isLocating;
 
   const CoordinatePreviewMap({
@@ -16,6 +17,7 @@ class CoordinatePreviewMap extends StatefulWidget {
     required this.coordinate,
     required this.markerIcon,
     this.onLocatePressed,
+    this.onTap,
     this.isLocating = false,
   });
 
@@ -150,6 +152,9 @@ class _CoordinatePreviewMapState extends State<CoordinatePreviewMap> {
                 onMapCreated: (ctrl) async {
                   controller = ctrl;
                   _controllerCompleter.complete(ctrl);
+                },
+                onTap: (pos) {
+                  if (widget.onTap != null) widget.onTap!(pos);
                 },
                 zoomControlsEnabled: false,
                 mapToolbarEnabled: false,

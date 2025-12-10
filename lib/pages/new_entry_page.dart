@@ -30,6 +30,9 @@ class _NewEntryPageState extends State<NewEntryPage> {
   File? imageFile;
   bool locating = false;
   bool submitting = false;
+  bool resolvingName = false;
+  bool fetchingName = false;
+  bool fetchingPhoto = false;
   LatLng? previewLatLng;
   BitmapDescriptor? previewMarkerIcon;
   final LatLng _defaultCenter = const LatLng(23.6850, 90.3563);
@@ -83,11 +86,50 @@ class _NewEntryPageState extends State<NewEntryPage> {
       latController.text = position.latitude.toStringAsFixed(6);
       lonController.text = position.longitude.toStringAsFixed(6);
       _onLatLonChanged();
+      await _fetchNameAndPhoto(position.latitude, position.longitude);
     } catch (e) {
       _showError('Unable to detect location: $e');
     } finally {
       if (mounted) {
         setState(() => locating = false);
+      }
+    }
+  }
+
+  Future<void> _fetchNameAndPhoto(double lat, double lon) async {
+    if (!mounted) return;
+    setState(() {
+      titleController.clear();
+      resolvingName = true;
+      fetchingName = true;
+      fetchingPhoto = true;
+    });
+    try {
+      final nameFuture = ApiService.reverseGeocode(lat, lon);
+      final photoFuture = ApiService.fetchPlacePhoto(lat, lon);
+
+      final name = await nameFuture;
+      if (mounted) setState(() => fetchingName = false);
+      if (mounted && name != null && name.isNotEmpty) {
+        if (mounted && titleController.text.trim().isEmpty) {
+          titleController.text = name;
+        }
+      }
+
+      final file = await photoFuture;
+      if (mounted) setState(() => fetchingPhoto = false);
+      if (mounted && file != null) {
+        setState(() {
+          imageFile = file;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          resolvingName = false;
+          fetchingName = false;
+          fetchingPhoto = false;
+        });
       }
     }
   }
@@ -268,12 +310,24 @@ class _NewEntryPageState extends State<NewEntryPage> {
               markerIcon: previewMarkerIcon,
               onLocatePressed: _prefillLocation,
               isLocating: locating,
+              onTap: resolvingName
+                  ? null
+                  : (pos) async {
+                      final latStr = pos.latitude.toStringAsFixed(6);
+                      final lonStr = pos.longitude.toStringAsFixed(6);
+                      latController.text = latStr;
+                      lonController.text = lonStr;
+                      _onLatLonChanged();
+                      await _fetchNameAndPhoto(pos.latitude, pos.longitude);
+                    },
             ),
             const SizedBox(height: 10),
             _buildTextField(
               controller: titleController,
               label: 'Title',
               icon: Icons.title,
+              enabled: !resolvingName,
+              showLoading: fetchingName,
             ),
             const SizedBox(height: 8),
             Row(
@@ -287,6 +341,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
                       signed: true,
                       decimal: true,
                     ),
+                    enabled: !resolvingName,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -299,6 +354,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
                       signed: true,
                       decimal: true,
                     ),
+                    enabled: !resolvingName,
                   ),
                 ),
               ],
@@ -342,6 +398,8 @@ class _NewEntryPageState extends State<NewEntryPage> {
     required String label,
     required IconData icon,
     TextInputType? keyboardType,
+    bool enabled = true,
+    bool showLoading = false,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -351,6 +409,7 @@ class _NewEntryPageState extends State<NewEntryPage> {
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: TextField(
+        enabled: enabled,
         controller: controller,
         keyboardType: keyboardType,
         style: const TextStyle(color: AppTheme.textPrimary),
@@ -359,6 +418,19 @@ class _NewEntryPageState extends State<NewEntryPage> {
           labelText: label,
           labelStyle: const TextStyle(color: AppTheme.textSecondary),
           border: InputBorder.none,
+          suffixIcon: showLoading
+              ? const SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: Padding(
+                    padding: EdgeInsets.all(6.0),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.yellowForeground,
+                    ),
+                  ),
+                )
+              : null,
         ),
       ),
     );
@@ -374,35 +446,93 @@ class _NewEntryPageState extends State<NewEntryPage> {
         ),
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: _pickImage,
-          child: Container(
-            width: double.infinity,
-            height: 160,
-            decoration: BoxDecoration(
-              color: AppTheme.cardBackground,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.yellowForeground, width: 1.5),
-            ),
-            child: imageFile == null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(
-                        Icons.add_a_photo,
-                        color: AppTheme.textSecondary,
-                        size: 32,
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Tap to select an image',
-                        style: TextStyle(color: AppTheme.textSecondary),
-                      ),
-                    ],
-                  )
-                : ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.file(imageFile!, fit: BoxFit.cover),
+          onTap: resolvingName ? null : _pickImage,
+          child: Stack(
+            children: [
+              Container(
+                width: double.infinity,
+                height: 160,
+                decoration: BoxDecoration(
+                  color: AppTheme.cardBackground,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.yellowForeground,
+                    width: 1.5,
                   ),
+                ),
+                child: imageFile == null
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(
+                            Icons.add_a_photo,
+                            color: AppTheme.textSecondary,
+                            size: 32,
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Tap to select an image',
+                            style: TextStyle(color: AppTheme.textSecondary),
+                          ),
+                        ],
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(imageFile!, fit: BoxFit.cover),
+                      ),
+              ),
+              if (fetchingPhoto)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardBackground.withAlpha(
+                        (0.6 * 255).round(),
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.yellowForeground,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (imageFile != null)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: () {
+                      if (resolvingName) return;
+                      setState(() {
+                        imageFile = null;
+                      });
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardBackground,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppTheme.yellowForeground,
+                          width: 1,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.clear,
+                        color: AppTheme.yellowForeground,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
