@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'services/secrets.dart';
 import 'pages/map_page.dart';
 import 'pages/records_page.dart';
 import 'pages/new_entry_page.dart';
 import 'theme/app_theme.dart';
 import 'models/landmark.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Secrets.loadFromPlatform();
+  } catch (_) {}
   runApp(const MainApp());
 }
 

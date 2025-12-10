@@ -4,9 +4,100 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image/image.dart' as img;
 import '../models/landmark.dart';
+import 'secrets.dart';
 
 class ApiService {
   static const String baseUrl = 'https://labs.anontech.info/cse489/t3/api.php';
+
+  // Took help from AI to implement this function
+  static Future<String?> reverseGeocode(double lat, double lon) async {
+    try {
+      final key = Secrets.googleMapsApiKey;
+      if (key.isEmpty) return null;
+      final uri = Uri.https('maps.googleapis.com', '/maps/api/geocode/json', {
+        'latlng': '${lat.toString()},${lon.toString()}',
+        'key': key,
+      });
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final results = data['results'] as List<dynamic>?;
+        if (results != null && results.isNotEmpty) {
+          final first = results.first as Map<String, dynamic>;
+          final formatted = first['formatted_address'];
+          if (formatted is String && formatted.isNotEmpty) return formatted;
+        }
+        return null;
+      } else {
+        return null;
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Took help from AI to implement this function
+  static Future<File?> fetchPlacePhoto(double lat, double lon) async {
+    try {
+      final key = Secrets.googleMapsApiKey;
+      if (key.isEmpty) return null;
+
+      final nearbyUri = Uri.https(
+        'maps.googleapis.com',
+        '/maps/api/place/nearbysearch/json',
+        {
+          'location': '${lat.toString()},${lon.toString()}',
+          'radius': '1',
+          'key': key,
+        },
+      );
+      final nearbyResp = await http.get(nearbyUri);
+      if (nearbyResp.statusCode != 200) return null;
+      final Map<String, dynamic> nearbyData = jsonDecode(nearbyResp.body);
+      final results = nearbyData['results'] as List<dynamic>?;
+      if (results == null || results.isEmpty) return null;
+
+      Map<String, dynamic>? withPhoto;
+      for (final r in results) {
+        final map = r as Map<String, dynamic>;
+        if (map['photos'] != null) {
+          withPhoto = map;
+          break;
+        }
+      }
+      if (withPhoto == null) return null;
+      final photos = withPhoto['photos'] as List<dynamic>?;
+      if (photos == null || photos.isEmpty) return null;
+      final photoRef =
+          (photos.first as Map<String, dynamic>)['photo_reference'] as String?;
+      if (photoRef == null || photoRef.isEmpty) return null;
+
+      final photoUri = Uri.https(
+        'maps.googleapis.com',
+        '/maps/api/place/photo',
+        {'maxwidth': '800', 'photoreference': photoRef, 'key': key},
+      );
+      final photoResp = await http.get(photoUri);
+      if (photoResp.statusCode != 200) return null;
+      final bytes = photoResp.bodyBytes;
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) return null;
+      final resized = img.copyResize(
+        decoded,
+        width: 800,
+        height: 600,
+        interpolation: img.Interpolation.linear,
+      );
+      final jpgBytes = img.encodeJpg(resized, quality: 85);
+      final tmp = File(
+        '${Directory.systemTemp.path}/cse489_place_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await tmp.writeAsBytes(jpgBytes, flush: true);
+      return tmp;
+    } catch (_) {
+      return null;
+    }
+  }
 
   static Future<List<Landmark>> fetchLandmarks() async {
     try {
